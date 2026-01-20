@@ -34,6 +34,9 @@ volatile double f_tick=0.5;
 I2C i2c(I2C1_SDA, I2C1_SCL);
 BME280 bme(&i2c, BME280::I2CAddress::Address1);
 
+const int addr7bit = 0x76;      
+const int addr8bit = 0x76 << 1;
+
 
 
 
@@ -130,21 +133,61 @@ int main()
 
 /***************  I2C *****************/
    
-    bme.initialize();
-    bme.set_sampling(
-        BME280::SensorMode::NORMAL,
-        BME280::SensorSampling::OVERSAMPLING_X16,
-        BME280::SensorSampling::OVERSAMPLING_X16,
-        BME280::SensorSampling::OVERSAMPLING_X16
-    );
+    // bme.initialize();
+    // bme.set_sampling(
+    //     BME280::SensorMode::NORMAL,
+    //     BME280::SensorSampling::OVERSAMPLING_X16,
+    //     BME280::SensorSampling::OVERSAMPLING_X16,
+    //     BME280::SensorSampling::OVERSAMPLING_X16
+    // );
 
-    while (true) {
-        float temperature = bme.temperature(); 
-        float pressure = bme.pressure(); 
-        float humidity = bme.humidity(); 
-        printf("T = %.2f C | P = %.2f Pa | H = %.2f % \n", temperature, pressure, humidity);
+    // while (true) {
+    //     float temperature = bme.temperature(); 
+    //     float pressure = bme.pressure(); 
+    //     float humidity = bme.humidity(); 
+    //     printf("T = %.2f C | P = %.2f Pa | H = %.2f % \n", temperature, pressure, humidity);
        
 
+    //     ThisThread::sleep_for(1000ms);
+    // }
+
+    
+    static char data[18];
+    data[0] = 0x88;
+    i2c.write(addr8bit, data, 1);
+    i2c.read(addr8bit, data, 6);
+    uint16_t calib_dig_T1 = (data[1] << 8) | data[0];
+    uint16_t calib_dig_T2 = (data[3] << 8) | (data[2]);
+    uint16_t calib_dig_T3 = (data[5] << 8) | (data[4]);
+
+    uint8_t osrs_t = 0b101;
+    
+    char cmd;
+    int32_t var1, var2, t_fine;
+    char temp_data[3];
+    while (1) {
+        cmd= 0xfa;
+        i2c.write(addr8bit, &cmd, 1, true);
+        i2c.read(addr8bit, temp_data, 3, false);
+
+
+        uint32_t raw_temp = ((temp_data[0] << 12) | (temp_data[1] << 4) | (temp_data[2] >> 4));
+        raw_temp &= 0xFFFFF;
+
+
+
+         var1 = ((((raw_temp >> 3) - ((int32_t) calib_dig_T1 << 1)))
+                    * ((int32_t) calib_dig_T2)) >> 11;
+
+         var2 = (((((raw_temp >> 4) - ((int32_t) calib_dig_T1))
+                                    * ((raw_temp >> 4) - ((int32_t) calib_dig_T1))) >> 12)
+                    * ((int32_t) calib_dig_T3)) >> 14;
+
+        t_fine = var1 + var2;
+
+        float T = (float)((t_fine * 5 + 128) >> 8) / 100.0;
+        
+        printf("T = %.2f C\n", T);
         ThisThread::sleep_for(1000ms);
     }
     
