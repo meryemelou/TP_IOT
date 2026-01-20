@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "mbed.h"
+#include "bme280.h"
+
+using namespace sixtron;
 
 
 namespace {
@@ -23,6 +26,15 @@ volatile int flag=0;
 
 Ticker flipper;
 volatile double f_tick=0.5;
+
+
+
+
+
+I2C i2c(I2C1_SDA, I2C1_SCL);
+BME280 bme(&i2c, BME280::I2CAddress::Address1);
+
+
 
 
 void flip()
@@ -105,12 +117,35 @@ int main()
     // }
 
 
-    button.rise(&incr_freq); 
-    flipper.attach(&flip, f_tick); 
+    // button.rise(&incr_freq); 
+    // flipper.attach(&flip, f_tick); 
 
-    // spin in a main loop. flipper will interrupt it to call flip
-    while (1) {
-        printf("myled = %d, F= %.1f \n\r", myled.read(), f_tick);
-        ThisThread::sleep_for(500);
+    // // spin in a main loop. flipper will interrupt it to call flip
+    // while (1) {
+    //     printf("myled = %d, F= %.1f \n\r", myled.read(), f_tick);
+    //     ThisThread::sleep_for(500);
+    // }
+
+
+
+/***************  I2C *****************/
+   
+    bme.initialize();
+    bme.set_sampling(
+        BME280::SensorMode::NORMAL,
+        BME280::SensorSampling::OVERSAMPLING_X16,
+        BME280::SensorSampling::OVERSAMPLING_X16,
+        BME280::SensorSampling::OVERSAMPLING_X16
+    );
+
+    while (true) {
+        float temperature = bme.temperature(); 
+        float pressure = bme.pressure(); 
+        float humidity = bme.humidity(); 
+        printf("T = %.2f C | P = %.2f Pa | H = %.2f % \n", temperature, pressure, humidity);
+       
+
+        ThisThread::sleep_for(1000ms);
     }
+    
 }
