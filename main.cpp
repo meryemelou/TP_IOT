@@ -21,6 +21,8 @@ using namespace std::chrono;
 Timer t;
 volatile int flag=0;
 
+Ticker flipper;
+volatile double f_tick=0.5;
 
 
 void flip()
@@ -40,6 +42,15 @@ void mystart(){
     t.stop();
     flag=1;
     
+ }
+
+ void incr_freq(){
+    f_tick+=0.5;
+    if(f_tick==3.5){f_tick=0.5;}
+    flipper.detach();
+    flipper.attach(&flip,f_tick);
+    // printf("period=%.1f s\n\r",f_tick);
+
  }
 
 int main()
@@ -83,13 +94,23 @@ int main()
     // }
 
 
-    button.rise(&mystart);  
-    button.fall(&mystop);
-    while (1) {          // wait around, interrupts will interrupt this!
-        if(flag==1){
-            printf("The time taken was %llu milliseconds\n", duration_cast<milliseconds>(t.elapsed_time()).count());
-            flag=0;
-        }
+    // button.rise(&mystart);  
+    // button.fall(&mystop);
+    // while (1) {          // wait around, interrupts will interrupt this!
+    //     if(flag==1){
+    //         printf("The time taken was %llu milliseconds\n", duration_cast<milliseconds>(t.elapsed_time()).count());
+    //         flag=0;
+    //     }
         
+    // }
+
+
+    button.rise(&incr_freq); 
+    flipper.attach(&flip, f_tick); 
+
+    // spin in a main loop. flipper will interrupt it to call flip
+    while (1) {
+        printf("myled = %d, F= %.1f \n\r", myled.read(), f_tick);
+        ThisThread::sleep_for(500);
     }
 }
